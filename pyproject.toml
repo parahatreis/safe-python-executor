@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "safe-python-executor"
+version = "0.1.0"
+description = "A small Flask application"
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+flask = "^3.0.0"
+gunicorn = "^21.2.0"
+numpy = "^2.0.0"
+pandas = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
