@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 import subprocess
-import tempfile
+import secrets
 import shutil
+import getpass
 from pathlib import Path
 from typing import Any, Tuple
 
@@ -22,6 +24,32 @@ from app.execution.wrapper import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _current_user() -> str:
+    """
+    Return the best-effort name of the OS user running the service.
+    """
+    try:
+        return getpass.getuser()
+    except Exception:
+        return os.getenv("USER", "unknown")
+
+
+def _create_workspace() -> Path:
+    """
+    Create a unique /tmp/nsjail_exec/run_<id>/ directory for a single request.
+    """
+    Config.SANDBOX_ROOT.mkdir(parents=True, exist_ok=True)
+    for _ in range(5):
+        run_id = secrets.token_hex(8)
+        candidate = Config.SANDBOX_ROOT / f"run_{run_id}"
+        try:
+            candidate.mkdir(mode=0o700)
+            return candidate
+        except FileExistsError:
+            continue
+    raise ScriptExecutionError("Unable to allocate sandbox workspace")
 
 
 def run_script(script: str, timeout: int | None = None) -> Tuple[Any, str]:
@@ -46,33 +74,39 @@ def run_script(script: str, timeout: int | None = None) -> Tuple[Any, str]:
     
     sandbox_dir: Path | None = None
     try:
-        Config.SANDBOX_ROOT.mkdir(parents=True, exist_ok=True)
-        sandbox_dir = Path(
-            tempfile.mkdtemp(prefix="run_", dir=str(Config.SANDBOX_ROOT))
+        sandbox_dir = _create_workspace()
+        logger.info(
+            "Starting sandbox %s as user=%s",
+            sandbox_dir.name,
+            _current_user(),
         )
-        sandbox_name = sandbox_dir.name
         script_host_path = sandbox_dir / "user_script.py"
         result_host_path = sandbox_dir / "result.json"
+        wrapper_host_path = sandbox_dir / "wrapper.py"
+        wrapper_source = (Path(__file__).resolve().parent / "wrapper.py")
+        shutil.copy2(wrapper_source, wrapper_host_path)
 
         # Write user script inside the sandbox mount
         with open(script_host_path, "w") as f:
             f.write(script)
 
-        wrapper_path = (Path(__file__).resolve().parent / "wrapper.py").resolve()
-
-        script_arg = f"/tmp/{sandbox_name}/user_script.py"
-        result_arg = f"/tmp/{sandbox_name}/result.json"
-
+        # nsjail runs without extra namespaces; it only enforces rlimits/env cleanup.
         cmd = [
             "nsjail",
-            "--config", Config.NSJAIL_CONFIG_PATH,
+            "--config",
+            Config.NSJAIL_CONFIG_PATH,
+            "--cwd",
+            str(sandbox_dir),
+            "--disable_rlimits",
+        ]
+        cmd.extend([
             "--",
             "/usr/local/bin/python3",
-            "/wrapper.py",
-            script_arg,
-            result_arg,
-        ]
-        command_cwd = wrapper_path.parent
+            "wrapper.py",
+            str(script_host_path),
+            str(result_host_path),
+        ])
+        command_cwd = str(Config.SANDBOX_ROOT)
         
         # Run nsjail
         try:
@@ -84,10 +118,23 @@ def run_script(script: str, timeout: int | None = None) -> Tuple[Any, str]:
                 cwd=command_cwd,
             )
         except subprocess.TimeoutExpired:
+            logger.warning(
+                "Sandbox %s hit timeout=%ss for user=%s",
+                sandbox_dir.name if sandbox_dir else "unknown",
+                timeout,
+                _current_user(),
+            )
             raise ScriptTimeoutError(f"Script execution exceeded {timeout} seconds")
         
         stdout_text = result.stdout
         stderr_text = result.stderr
+        logger.info(
+            "Sandbox %s finished with returncode=%s (stdout_len=%d, stderr_len=%d)",
+            sandbox_dir.name,
+            result.returncode,
+            len(stdout_text or ""),
+            len(stderr_text or ""),
+        )
         
         # Map exit codes to exceptions
         if result.returncode == EXIT_MISSING_MAIN:
