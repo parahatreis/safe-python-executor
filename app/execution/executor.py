@@ -60,32 +60,19 @@ def run_script(script: str, timeout: int | None = None) -> Tuple[Any, str]:
 
         wrapper_path = (Path(__file__).resolve().parent / "wrapper.py").resolve()
 
-        use_nsjail = Config.NSJAIL_ENABLED
-        script_arg = f"/tmp/{sandbox_name}/user_script.py" if use_nsjail else str(script_host_path)
-        result_arg = f"/tmp/{sandbox_name}/result.json" if use_nsjail else str(result_host_path)
-        
-        logger.info(f"Using nsjail: {use_nsjail}")
+        script_arg = f"/tmp/{sandbox_name}/user_script.py"
+        result_arg = f"/tmp/{sandbox_name}/result.json"
 
-        # If nsjail is enabled, use nsjail to run the script
-        if use_nsjail:
-            cmd = [
-                "nsjail",
-                "--config", Config.NSJAIL_CONFIG_PATH,
-                "--",
-                "/usr/local/bin/python3",
-                "/wrapper.py",
-                script_arg,
-                result_arg,
-            ]
-            command_cwd = wrapper_path.parent
-        else:  # If nsjail is disabled, run the script directly
-            cmd = [
-                "/usr/local/bin/python3",
-                str(wrapper_path),
-                script_arg,
-                result_arg,
-            ]
-            command_cwd = None
+        cmd = [
+            "nsjail",
+            "--config", Config.NSJAIL_CONFIG_PATH,
+            "--",
+            "/usr/local/bin/python3",
+            "/wrapper.py",
+            script_arg,
+            result_arg,
+        ]
+        command_cwd = wrapper_path.parent
         
         # Run nsjail
         try:

@@ -23,16 +23,6 @@ docker-compose up --build
 
 The app will be available at `http://localhost:8080`
 
-### Running without nsjail
-
-Some environments (e.g. Cloud Run on gVisor) block the kernel features nsjail needs. To exercise the non-nsjail execution path, set:
-
-```bash
-export ENABLE_NSJAIL=false
-```
-
-For Docker Compose, add `ENABLE_NSJAIL=false` under `services.api.environment` and run `docker-compose up --build`. The wrapper still validates scripts, but isolation relies on the container runtime instead of nsjail.
-
 ### Test with curl
 
 Local (docker-compose port 8080):
