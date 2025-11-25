@@ -22,6 +22,10 @@ configure_logging()
 
 app = Flask(__name__)
 
+# Set resource limits
+from app.config import Config
+app.config['MAX_CONTENT_LENGTH'] = Config.MAX_CONTENT_LENGTH
+
 from app.api.routes import bp as api_bp
 
 app.register_blueprint(api_bp)

@@ -21,17 +21,16 @@ from app.execution.wrapper import (
 )
 
 
-SANDBOX_ROOT = Path("/tmp/nsjail_exec")
 logger = logging.getLogger(__name__)
 
 
-def run_script(script: str, timeout: int = 30) -> Tuple[Any, str]:
+def run_script(script: str, timeout: int | None = None) -> Tuple[Any, str]:
     """
     Execute a Python script and return the result and stdout.
     
     Args:
         script: Python script code that defines a main() function
-        timeout: Maximum execution time in seconds (default: 30)
+        timeout: Maximum execution time in seconds (default: Config.DEFAULT_TIMEOUT)
         
     Returns:
         tuple: (result, stdout) where result is the return value of main()
@@ -42,11 +41,14 @@ def run_script(script: str, timeout: int = 30) -> Tuple[Any, str]:
         ScriptTimeoutError: If script execution exceeds timeout
         ScriptExecutionError: If script execution fails
     """
+    if timeout is None:
+        timeout = Config.DEFAULT_TIMEOUT
+    
     sandbox_dir: Path | None = None
     try:
-        SANDBOX_ROOT.mkdir(parents=True, exist_ok=True)
+        Config.SANDBOX_ROOT.mkdir(parents=True, exist_ok=True)
         sandbox_dir = Path(
-            tempfile.mkdtemp(prefix="run_", dir=str(SANDBOX_ROOT))
+            tempfile.mkdtemp(prefix="run_", dir=str(Config.SANDBOX_ROOT))
         )
         sandbox_name = sandbox_dir.name
         script_host_path = sandbox_dir / "user_script.py"
@@ -122,9 +124,6 @@ def run_script(script: str, timeout: int = 30) -> Tuple[Any, str]:
         return result_data, stdout_text
         
     finally:
+        # Clean up individual sandbox directory only
         if sandbox_dir and sandbox_dir.exists():
             shutil.rmtree(sandbox_dir, ignore_errors=True)
-        try:
-            SANDBOX_ROOT.rmdir()
-        except OSError:
-            pass

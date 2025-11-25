@@ -49,6 +49,8 @@ curl -X POST https://safe-python-executor-538469180276.us-central1.run.app/execu
   -d '{"script": "def main():\n    return 42"}'
 ```
 
+Reference [TEST_CASES.md](TEST_CASES.md) file to test with different request bodies.
+
 ## Production
 
 The production API is available at:

@@ -41,10 +41,18 @@ def validate_request(schema: Type[T]):
             try:
                 payload = schema(**data)
             except ValidationError as ve:
+                # Extract detailed validation errors
+                error_messages = []
+                for err in ve.errors():
+                    field = ".".join(str(loc) for loc in err["loc"])
+                    msg = err["msg"]
+                    error_messages.append(f"{field}: {msg}")
+                
+                error_message = "; ".join(error_messages) if error_messages else "Invalid request payload"
                 error = ExecuteErrorResponse(
                     error=ErrorInfo(
                         type="ValidationError",
-                        message="`script` field is required",
+                        message=error_message,
                     )
                 )
                 return jsonify(error.model_dump()), 400

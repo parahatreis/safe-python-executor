@@ -26,7 +26,7 @@ def health():
 def execute(payload: ScriptRequest):
     # Execute script via executor
     try:
-        result, stdout = run_script(payload.script)
+        result, stdout = run_script(payload.script, timeout=payload.timeout)
     except MissingMainError as e:
         error = ExecuteErrorResponse(
             error=ErrorInfo(
