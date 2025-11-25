@@ -10,10 +10,8 @@ class Config:
     NSJAIL_CONFIG_PATH = str(_APP_DIR / "execution" / "nsjail.cfg")
     SANDBOX_ROOT = Path(os.getenv("SANDBOX_ROOT", "/tmp/nsjail_exec"))
     
-    # Execution settings
-    DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "30"))
-    MAX_SCRIPT_LENGTH = int(os.getenv("MAX_SCRIPT_LENGTH", "20000"))
-    
     # Resource limits
+    DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "5")) # 30 seconds
+    MAX_SCRIPT_LENGTH = int(os.getenv("MAX_SCRIPT_LENGTH", "20000")) # 20000 characters
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", "20971520"))  # 20MB default
 
