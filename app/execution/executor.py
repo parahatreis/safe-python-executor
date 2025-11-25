@@ -1,4 +1,5 @@
 import json
+import logging
 import subprocess
 import tempfile
 import shutil
@@ -21,6 +22,7 @@ from app.execution.wrapper import (
 
 
 SANDBOX_ROOT = Path("/tmp/nsjail_exec")
+logger = logging.getLogger(__name__)
 
 
 def run_script(script: str, timeout: int = 30) -> Tuple[Any, str]:
@@ -54,37 +56,43 @@ def run_script(script: str, timeout: int = 30) -> Tuple[Any, str]:
         with open(script_host_path, "w") as f:
             f.write(script)
 
-        wrapper_path = (
-            Path(__file__)
-            .resolve()
-            .parent
-            / "wrapper.py"
-        )
-        wrapper_path = wrapper_path.resolve()
+        wrapper_path = (Path(__file__).resolve().parent / "wrapper.py").resolve()
 
-        script_jail_path = f"/tmp/{sandbox_name}/user_script.py"
-        result_jail_path = f"/tmp/{sandbox_name}/result.json"
+        use_nsjail = Config.NSJAIL_ENABLED
+        script_arg = f"/tmp/{sandbox_name}/user_script.py" if use_nsjail else str(script_host_path)
+        result_arg = f"/tmp/{sandbox_name}/result.json" if use_nsjail else str(result_host_path)
         
-        # Build nsjail command
-        # Use absolute path to python3
-        nsjail_cmd = [
-            "nsjail",
-            "--config", Config.NSJAIL_CONFIG_PATH,
-            "--",
-            "/usr/local/bin/python3",
-            "/wrapper.py",
-            script_jail_path,
-            result_jail_path,
-        ]
+        logger.info(f"Using nsjail: {use_nsjail}")
+
+        # If nsjail is enabled, use nsjail to run the script
+        if use_nsjail:
+            cmd = [
+                "nsjail",
+                "--config", Config.NSJAIL_CONFIG_PATH,
+                "--",
+                "/usr/local/bin/python3",
+                "/wrapper.py",
+                script_arg,
+                result_arg,
+            ]
+            command_cwd = wrapper_path.parent
+        else:  # If nsjail is disabled, run the script directly
+            cmd = [
+                "/usr/local/bin/python3",
+                str(wrapper_path),
+                script_arg,
+                result_arg,
+            ]
+            command_cwd = None
         
         # Run nsjail
         try:
             result = subprocess.run(
-                nsjail_cmd,
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd=wrapper_path.parent,
+                cwd=command_cwd,
             )
         except subprocess.TimeoutExpired:
             raise ScriptTimeoutError(f"Script execution exceeded {timeout} seconds")
