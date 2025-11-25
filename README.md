@@ -16,14 +16,9 @@ After execution, the service returns:
 
 ## Running with Docker
 
-Build the image:
-```bash
-docker build -t safe-python-executor .
-```
-
 Run the container:
 ```bash
-docker run -p 8080:8080 safe-python-executor
+docker-compose up --build
 ```
 
 The app will be available at `http://localhost:8080`
